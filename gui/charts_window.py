@@ -1,82 +1,90 @@
-from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget
-import plotly.graph_objs as go
-from plotly.subplots import make_subplots
+import sys
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
 from PyQt5.QtWebEngineWidgets import QWebEngineView
+import plotly.graph_objs as go
 import plotly.io as pio
-from modules.prediction import *
+import pandas as pd
 
 class ChartsWindow(QMainWindow):
-    def __init__(self, stock_data, predictions):
+    def __init__(self, stock_data=None, predictions=None):
         super().__init__()
-        self.setWindowTitle("Stock Charts")
+        self.setWindowTitle("Charts")
         self.setGeometry(200, 200, 900, 700)
 
-        # Create layout and widget
+        # Create the main widget and layout
         widget = QWidget()
         self.setCentralWidget(widget)
         layout = QVBoxLayout(widget)
-        
-        # Generate chart using Plotly
-        fig = make_subplots(rows=2, cols=1)
 
-        # Example plot (replace with your actual logic)
-        stock_data.rename(columns={'timestamp': 'Date', 'close': 'Close'}, inplace=True)
-        stock_data.reset_index(inplace=True)
-        fig.add_trace(go.Scatter(x=stock_data['Date'], y=stock_data['Close'], name="Stock Price"), row=1, col=1)
+        # Test Plotly rendering with sample data
+        self.test_plotly(layout, stock_data, predictions)
 
-        if predictions is not None:
-            fig.add_trace(go.Scatter(x=predictions['Date'], y=predictions['Prediction'], name="Prediction"), row=2, col=1)
-        else:
-            print("Error: Predictions data is None.")
-            # Handle this case, perhaps by showing a message or default chart
+    def test_plotly(self, layout, stock_data, predictions):
+        """
+        Test Plotly chart rendering.
+        """
+        # Create a sample Plotly chart
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=[1, 2, 3], y=[4, 5, 6], mode='lines+markers', name='Test Line'))
+        fig.update_layout(title='Sample Chart', template='plotly_dark')
 
-        # Render chart in the app window
+        # Convert the chart figure to HTML
         chart_html = pio.to_html(fig, full_html=False)
+        print("Chart HTML content:")
+        print(chart_html)
+
+        # Create QWebEngineView to display Plotly chart
         chart_view = QWebEngineView()
         chart_view.setHtml(chart_html)
-        
         layout.addWidget(chart_view)
 
+        # If stock_data and predictions are provided, attempt to create and display charts
+        if stock_data is not None and not stock_data.empty:
+            fig = self.create_figure(stock_data, predictions)
+            chart_html = pio.to_html(fig, full_html=False)
+            chart_view = QWebEngineView()
+            chart_view.setHtml(chart_html)
+            layout.addWidget(chart_view)
 
-    def create_charts(symbol):
-        periods = ['1y', '6mo', '1d']
-        intervals = ['1d', '1d', '1m']
+    def create_figure(self, stock_data, predictions):
+        """
+        Creates a Plotly figure for stock data and predictions.
+        """
+        fig = go.Figure()
 
-        for period, interval in zip(periods, intervals):
-            data = fetch_data_from_yf(symbol, period, interval)
-            if data is None or data.empty:
-                print(f"No data available for {symbol} with period {period} and interval {interval}")
-                continue
+        # Add stock data trace
+        fig.add_trace(go.Scatter(x=stock_data['timestamp'], y=stock_data['close'], mode='lines', name='Close'))
 
-            # Calculate indicators
-            data = calculate_indicators(data)
+        # Add predictions trace if available
+        if predictions is not None:
+            fig.add_trace(go.Scatter(x=predictions['Date'], y=predictions['Prediction'], mode='lines', name='Prediction'))
 
-            # Create traces for plotly
-            traces = []
+        # Customize layout
+        fig.update_layout(
+            title='Stock Data and Predictions',
+            xaxis_title='Date',
+            yaxis_title='Value',
+            template='plotly_dark'
+        )
 
-            # Closing price trace
-            traces.append(go.Scatter(x=data['timestamp'], y=data['close'], mode='lines', name='Close', line=dict(color='#00B2E2')))
+        return fig
 
-            # Bollinger Bands traces
-            traces.append(go.Scatter(x=data['timestamp'], y=data['Bollinger_Upper'], mode='lines', name='Bollinger Upper Band', line=dict(color='red', dash='dash')))
-            traces.append(go.Scatter(x=data['timestamp'], y=data['Bollinger_Lower'], mode='lines', name='Bollinger Lower Band', line=dict(color='red', dash='dash')))
+# Sample data
+stock_data = pd.DataFrame({
+    'timestamp': pd.date_range(start='2023-01-01', periods=10),
+    'close': [100 + i for i in range(10)]
+})
 
-            # Moving Averages traces
-            traces.append(go.Scatter(x=data['timestamp'], y=data['MA_20'], mode='lines', name='MA 20', line=dict(color='green')))
-            traces.append(go.Scatter(x=data['timestamp'], y=data['MA_50'], mode='lines', name='MA 50', line=dict(color='orange')))
-            traces.append(go.Scatter(x=data['timestamp'], y=data['MA_200'], mode='lines', name='MA 200', line=dict(color='purple')))
+predictions = pd.DataFrame({
+    'Date': pd.date_range(start='2023-01-01', periods=10),
+    'Prediction': [100 + i + 5 for i in range(10)]
+})
 
-            # Create figure
-            fig = go.Figure(data=traces)
+def main():
+    app = QApplication(sys.argv)  # Create a QApplication instance
+    window = ChartsWindow(stock_data, predictions)
+    window.show()
+    sys.exit(app.exec_())  # Start the event loop
 
-            # Update layout for interactive features
-            fig.update_layout(
-                title=f'{symbol} - {period} {interval}',
-                xaxis_title='Date',
-                yaxis_title='Value',
-                template='plotly_dark',  # Dark theme
-                hovermode='x unified'
-            )
-
-            # Show the plot
-            fig.show()
+if __name__ == "__main__":
+    main()

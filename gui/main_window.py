@@ -74,6 +74,8 @@ class MainWindow(QMainWindow):
 
     def open_charts_window(self):
         if hasattr(self, 'stock_data') and hasattr(self, 'predictions'):
+            print(self.stock_data.head())  # Check stock data
+            print(self.predictions)       # Check predictions data
             self.charts_window = ChartsWindow(self.stock_data, self.predictions)
             self.charts_window.show()
         else:
