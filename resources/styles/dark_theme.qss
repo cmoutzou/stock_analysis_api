@@ -1,0 +1,15 @@
+/* Example: dark style for your app */
+QMainWindow {
+    background-color: #121212;
+    color: #E0E0E0;
+}
+
+QPushButton {
+    background-color: #1A1A1A;
+    color: #E0E0E0;
+    border: 1px solid #333333;
+}
+
+QPushButton:hover {
+    background-color: #333333;
+}
