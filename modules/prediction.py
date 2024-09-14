@@ -107,11 +107,6 @@ def plot_prediction(data):
     future_dates = [last_date + pd.DateOffset(days=i) for i in range(1, future_steps + 1)]
     future_df = pd.DataFrame(index=future_dates, data={'Close': np.nan, 'ARIMA': arima_future_pred, 'LSTM': lstm_future_pred.flatten()})
 
-    prediction_df = pd.DataFrame({
-        'Date': future_df.index,
-        'Prediction': future_df['LSTM']  # Or another column if necessary
-    })
-
     # Create traces for plotly
     traces = []
 
@@ -145,6 +140,5 @@ def plot_prediction(data):
 
     # Show the plot
     fig.show()
-    return prediction_df
 
 

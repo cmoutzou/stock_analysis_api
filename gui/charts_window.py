@@ -1,90 +1,112 @@
-import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
-from PyQt5.QtWebEngineWidgets import QWebEngineView
+from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 import plotly.graph_objs as go
+from plotly.subplots import make_subplots
+from PyQt5.QtWebEngineWidgets import QWebEngineView
 import plotly.io as pio
-import pandas as pd
+from gui.charts_window import *
+from modules.stock_data import *
+from modules.prediction import *
+from modules.indicators import *
+from modules.macroeconomy import *
+from modules.stock_news import *
 
 class ChartsWindow(QMainWindow):
-    def __init__(self, stock_data=None, predictions=None):
+    def __init__(self, stock_data, predictions):
         super().__init__()
-        self.setWindowTitle("Charts")
-        self.setGeometry(200, 200, 900, 700)
+        self.setWindowTitle("Charts Window")
+        self.setGeometry(200, 200, 1200, 800)
 
-        # Create the main widget and layout
-        widget = QWidget()
-        self.setCentralWidget(widget)
-        layout = QVBoxLayout(widget)
+        # Store the data
+        self.stock_data = stock_data
+        self.predictions = predictions
 
-        # Test Plotly rendering with sample data
-        self.test_plotly(layout, stock_data, predictions)
+        # Create the central widget and layout
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
 
-    def test_plotly(self, layout, stock_data, predictions):
-        """
-        Test Plotly chart rendering.
-        """
-        # Create a sample Plotly chart
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=[1, 2, 3], y=[4, 5, 6], mode='lines+markers', name='Test Line'))
-        fig.update_layout(title='Sample Chart', template='plotly_dark')
+        # Create and set up QWebEngineView
+        self.browser = QWebEngineView()
+        layout.addWidget(self.browser)
 
-        # Convert the chart figure to HTML
-        chart_html = pio.to_html(fig, full_html=False)
-        print("Chart HTML content:")
-        print(chart_html)
+        # Generate and display the chart figure
+        fig = self.create_figure(self.stock_data, self.predictions)
+        self.display_chart(fig)
 
-        # Create QWebEngineView to display Plotly chart
-        chart_view = QWebEngineView()
-        chart_view.setHtml(chart_html)
-        layout.addWidget(chart_view)
 
-        # If stock_data and predictions are provided, attempt to create and display charts
-        if stock_data is not None and not stock_data.empty:
-            fig = self.create_figure(stock_data, predictions)
-            chart_html = pio.to_html(fig, full_html=False)
-            chart_view = QWebEngineView()
-            chart_view.setHtml(chart_html)
-            layout.addWidget(chart_view)
+        
 
     def create_figure(self, stock_data, predictions):
         """
         Creates a Plotly figure for stock data and predictions.
         """
-        fig = go.Figure()
+        fig = make_subplots(rows=2, cols=1)
 
-        # Add stock data trace
-        fig.add_trace(go.Scatter(x=stock_data['timestamp'], y=stock_data['close'], mode='lines', name='Close'))
+        # Ensure stock data is in the correct format
+        stock_data.rename(columns={'timestamp': 'Date', 'close': 'Close'}, inplace=True)
+        stock_data.reset_index(inplace=True)
 
-        # Add predictions trace if available
+        # Add stock price trace
+        fig.add_trace(go.Scatter(x=stock_data['Date'], y=stock_data['Close'], name="Stock Price"), row=1, col=1)
+        print("Predictions Data:", self.predictions)
+        # Add prediction trace if available
         if predictions is not None:
-            fig.add_trace(go.Scatter(x=predictions['Date'], y=predictions['Prediction'], mode='lines', name='Prediction'))
+            fig.add_trace(go.Scatter(x=predictions['Date'], y=predictions['Prediction'], name="Prediction"), row=2, col=1)
+        else:
+            print("Warning: Predictions data is None. Skipping prediction plot.")
 
-        # Customize layout
+        # Customize layout (dark theme, labels)
         fig.update_layout(
-            title='Stock Data and Predictions',
-            xaxis_title='Date',
-            yaxis_title='Value',
-            template='plotly_dark'
+            title="Stock Price and Predictions",
+            xaxis_title="Date",
+            yaxis_title="Price",
+            template="plotly_dark",  # Bloomberg-style dark theme
+            height=700,
+            hovermode='x unified'
         )
 
         return fig
 
-# Sample data
-stock_data = pd.DataFrame({
-    'timestamp': pd.date_range(start='2023-01-01', periods=10),
-    'close': [100 + i for i in range(10)]
-})
+    def create_figure(self, stock_data, predictions):
+        """
+        Creates a Plotly figure for stock data and predictions.
+        """
+        fig = make_subplots(rows=2, cols=1)
 
-predictions = pd.DataFrame({
-    'Date': pd.date_range(start='2023-01-01', periods=10),
-    'Prediction': [100 + i + 5 for i in range(10)]
-})
+        # Ensure stock data is in the correct format
+        stock_data.rename(columns={'timestamp': 'Date', 'close': 'Close'}, inplace=True)
+        stock_data.reset_index(inplace=True)
 
-def main():
-    app = QApplication(sys.argv)  # Create a QApplication instance
-    window = ChartsWindow(stock_data, predictions)
-    window.show()
-    sys.exit(app.exec_())  # Start the event loop
+        # Debugging: Print column names to ensure they are correct
+        print("Stock Data Columns:", stock_data.columns)
+        
+        # Add stock price trace
+        if 'Date' in stock_data.columns and 'Close' in stock_data.columns:
+            fig.add_trace(go.Scatter(x=stock_data['Date'], y=stock_data['Close'], name="Stock Price"), row=1, col=1)
+        else:
+            print("Error: 'Date' or 'Close' columns not found in stock_data.")
+        
+        # Add prediction trace if available
+        if predictions is not None:
+            if 'Date' in predictions.columns and 'Prediction' in predictions.columns:
+                fig.add_trace(go.Scatter(x=predictions['Date'], y=predictions['Prediction'], name="Prediction"), row=2, col=1)
+            else:
+                print("Error: 'Date' or 'Prediction' columns not found in predictions.")
+        else:
+            print("Warning: Predictions data is None. Skipping prediction plot.")
 
-if __name__ == "__main__":
-    main()
+        # Customize layout
+        fig.update_layout(
+            title="Stock Price and Predictions",
+            xaxis_title="Date",
+            yaxis_title="Price",
+            template="plotly_dark",
+            height=700,
+            hovermode='x unified'
+        )
+
+        return fig
+
+    def display_chart(self, fig):
+        chart_html = pio.to_html(fig, full_html=False)
+        self.browser.setHtml(chart_html)

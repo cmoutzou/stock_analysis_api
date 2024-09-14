@@ -1,15 +1,25 @@
-/* Example: dark style for your app */
-QMainWindow {
-    background-color: #121212;
-    color: #E0E0E0;
+QWidget {
+    background-color: #1e1e1e; /* Dark background color */
+    color: #e0e0e0; /* Light text color for better readability */
+    font-family: Arial, sans-serif; /* Modern font */
+}
+
+QLabel {
+    color: #e0e0e0; /* Light text color for labels */
 }
 
 QPushButton {
-    background-color: #1A1A1A;
-    color: #E0E0E0;
-    border: 1px solid #333333;
+    background-color: #333333; /* Dark button background */
+    color: #ffffff; /* Light button text */
+    border: 1px solid #444444; /* Slightly lighter border */
+    padding: 10px;
+    border-radius: 5px;
 }
 
 QPushButton:hover {
-    background-color: #333333;
+    background-color: #555555; /* Slightly lighter button background on hover */
+}
+
+QPushButton:pressed {
+    background-color: #222222; /* Darker background when pressed */
 }
