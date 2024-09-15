@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel, QPushButton, QGridLayout, QFrame, QScrollArea, QHBoxLayout
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QPixmap, QImage
@@ -9,8 +12,6 @@ from modules.macroeconomy import *
 from modules.stock_news import *
 import pandas as pd
 import requests 
-import sys
-import os
 from datetime import datetime
 import re
 
@@ -18,17 +19,17 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Stock Analysis App")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(100, 100, 1200, 1000)
 
-        symbol = 'AAPL'
+        self.symbol = 'AAPL'
         period = '1y'
         interval = '1d'
 
         # Fetch stock data
         self.stock_data = fetch_stock_data(symbol, period, interval)
         self.stock_predict_data = fetch_data_from_yf_predic(symbol, period, interval)
-        self.predictions = plot_prediction(self.stock_predict_data)
-        self.macroeconomics, self.macroeconomic_sentiment = analyze_macroeconomic_data()
+        self.predictions = plot_prediction(symbol, period, interval)
+        self.macroeconomics, self.macroeconomic_descriptions, self.macroeconomic_sentiment = analyze_macroeconomic_data()
         self.news_data = fetch_news(symbol)
         self.news_sentiment = get_news_sentiment(symbol)
 
@@ -49,6 +50,14 @@ class MainWindow(QMainWindow):
         self.news_frame = self.create_scrollable_section("News Sentiment", section_style)
         self.prediction_frame = self.create_section("Prediction\n", section_style, font)
 
+        # Create labels for predictions
+        self.arima_prediction_label = QLabel("ARIMA Prediction: N/A")
+        self.lstm_prediction_label = QLabel("LSTM Prediction: N/A")
+
+        # Add labels to prediction_frame
+        self.prediction_frame.layout().addWidget(self.arima_prediction_label)
+        self.prediction_frame.layout().addWidget(self.lstm_prediction_label)        
+
         # Add widgets to layout
         layout.addWidget(self.indicator_frame, 0, 0, 1, 1)
         layout.addWidget(self.news_frame, 0, 1, 1, 1)
@@ -60,9 +69,32 @@ class MainWindow(QMainWindow):
         self.open_charts_button.setStyleSheet("background-color: #007acc; color: white; padding: 10px; border-radius: 5px;")
         self.open_charts_button.clicked.connect(self.open_charts_window)
         layout.addWidget(self.open_charts_button, 2, 0, 1, 2, Qt.AlignCenter)
-
-        # Set section contents
+        
+       # Set section contents
         self.update_sections()
+        print(dir(self))  # Αυτό θα εμφανίσει όλα τα χαρακτηριστικά του αντικειμένου
+
+
+
+
+    def create_indicators(self, indicators, explanations):
+        # Create a scrollable section for indicators
+        indicator_str = ""
+        for column, value in indicators.items():
+            if isinstance(value, (int, float)):  # Numeric values
+                explanation = explanations.get(column, {})
+                description = remove_ansi_codes(explanation.get('description', ''))
+                feeling = explanation.get('feeling', 'Neutral')
+                indicator_str += f"<div style='color: #f1f1f1;'><b>{column}:</b> {value:.2f} - {print_colored_html(description, feeling)}</div>"
+            else:
+                indicator_str += f"<b>{column}:</b> {value}<br>"
+
+        # Find and update the content label inside the scrollable indicator frame
+        scroll_area_content = self.indicator_frame.findChild(QScrollArea).widget()
+        content_label = QLabel(f"<div style='color: #f1f1f1;'>{indicator_str.strip()}</div>")
+        content_label.setTextFormat(Qt.RichText)
+        scroll_area_content.layout().addWidget(content_label)
+    
 
     def create_section(self, title, style, font):
         frame = QFrame()
@@ -82,7 +114,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(title_label)
 
         # Create and style the content label
-        content_label = QLabel("Content will be shown here")
+        content_label = QLabel("")
         content_label.setWordWrap(True)
         content_label.setFont(font)  # Use the regular font for content
         layout.addWidget(content_label)
@@ -119,6 +151,69 @@ class MainWindow(QMainWindow):
         return frame
     
 
+    def update_prediction_section(self):
+        # Fetch prediction data
+        result = prepare_prediction_data(self.symbol, '1y', '1d')
+        data, train_data, test_data, arima_pred, arima_future_pred, lstm_pred, lstm_future_pred, indicators = result
+        
+        # Convert to numpy arrays if needed
+        if isinstance(arima_future_pred, pd.Series):
+            arima_future_pred = arima_future_pred.to_numpy()
+        if isinstance(lstm_future_pred, pd.Series):
+            lstm_future_pred = lstm_future_pred.to_numpy()
+
+        # Handle empty predictions
+        if arima_future_pred.size > 0:
+            predicted_price_arima = arima_future_pred[-1]  # Latest ARIMA prediction
+        else:
+            predicted_price_arima = 'N/A'  # Handle case with no predictions
+
+        if lstm_future_pred.size > 0:
+            predicted_price_lstm = lstm_future_pred[-1]    # Latest LSTM prediction
+        else:
+            predicted_price_lstm = 'N/A'  # Handle case with no predictions
+
+        # Format the predictions correctly
+        if isinstance(predicted_price_arima, (int, float)):
+            predicted_price_arima = f"${predicted_price_arima:.2f}"
+        elif isinstance(predicted_price_arima, str):
+            predicted_price_arima = predicted_price_arima
+
+        if isinstance(predicted_price_lstm, (int, float)):
+            predicted_price_lstm = f"${predicted_price_lstm:.2f}"
+        elif isinstance(predicted_price_lstm, str):
+            predicted_price_lstm = predicted_price_lstm
+
+        # Update the labels or text fields with predictions
+        self.arima_prediction_label.setText(f"ARIMA Prediction: {predicted_price_arima}")
+        self.lstm_prediction_label.setText(f"LSTM Prediction: {predicted_price_lstm}")
+
+        # Update indicators
+        self.update_indicators(indicators)
+
+        # Remove test data and other non-relevant info from prediction_frame
+        self.prediction_frame.findChild(QLabel).setText("")  # Clear out any old content in the prediction frame
+
+
+
+    def update_prediction_charts(self, test_data, arima_pred, lstm_pred):
+        # Assuming prediction_frame contains a QLabel for displaying predictions
+        prediction_label = self.prediction_frame.findChild(QLabel)
+        if prediction_label:
+            prediction_label.setText(f"Test Data: {test_data}\nARIMA Prediction: {arima_pred}\nLSTM Prediction: {lstm_pred}")
+        else:
+            print("Error: prediction_frame does not contain a QLabel for updating.")
+
+    def update_indicators(self, indicators):
+        for indicator in indicators:
+            label = getattr(self, f'{indicator}_label', None)
+            if label:
+                label.setText(f"{indicator}: {value:.2f}")
+            else:
+                print(f"Warning: {indicator}_label not found.")
+
+  
+
     def update_sections(self):
 
         # Path to the default icon (replace with your own path or URL)
@@ -149,20 +244,47 @@ class MainWindow(QMainWindow):
 
 
         # Handle macroeconomic data
+        
         if isinstance(self.macroeconomics, dict):
-            macroeconomic_str = "<div style='color: #f1f1f1;'>Macroeconomic Analysis:<br>"
+            description = self.macroeconomic_sentiment
+            sentiment_color  = 'yellow'  # Default color for neutral
+            if description == 'Positive':
+                sentiment_color  = '#32CD32'
+            elif description == 'Negative':
+                sentiment_color  = '#FF6347'
+            macroeconomic_str = (
+                f"<div style='color: #f1f1f1;'>"
+                f"<h3 style='color:{sentiment_color}; font-size:16px; font-weight:normal;'>"
+                f"Sentiment: {self.macroeconomic_sentiment}</h3>"
+        )
             for key, value in self.macroeconomics.items():
-                macroeconomic_str += f"<b>{key}:</b> {value}<br>"
-            self.macro_frame.findChild(QLabel).setText(macroeconomic_str.strip())
+                description = self.macroeconomic_descriptions.get(key, 'Neutral')
+                sentiment_color  = 'yellow'  # Default color for neutral
+                if description == 'Positive':
+                    sentiment_color  = '#32CD32'
+                elif description == 'Negative':
+                    sentiment_color  = '#FF6347'
+                
+                # Corrected the HTML style string
+                macroeconomic_str += (
+                f"<div style='font-size: 14px; margin-bottom: 6px;'>"
+                f"<b>{key}:</b> <span style='color: #f1f1f1;'>{value}</span> "
+                f"<span style='color: {sentiment_color }; font-size: 12px;'>{description}</span>"
+                f"</div>"
+        )
+
+                macroeconomic_str += "</div>"
+
+            # Apply the formatted string to the QLabel in the macro_frame
+            self.macro_frame.findChild(QLabel).setText(macroeconomic_str)
         else:
             self.macro_frame.findChild(QLabel).setText(f"<div style='color: #f1f1f1;'>Macroeconomic Analysis:<br>{self.macroeconomics}</div>")
 
-        # Add sentiment information if needed
-        self.macro_frame.findChild(QLabel).setText(self.macro_frame.findChild(QLabel).text() + f"<br><b>Sentiment:</b> {self.macroeconomic_sentiment}")
+       
+
+
 
         # Update the news section
-
-
         if isinstance(self.news_data, list) and self.news_data:
             sentiment_styles = {
                 'positive': 'color: #00FF00; font-weight: bold;',  # Green for positive
@@ -225,9 +347,12 @@ class MainWindow(QMainWindow):
             self.news_frame.findChild(QLabel).setText("<div style='color: #f1f1f1;'>No news available.</div>")
 
             # Update the prediction section
-            self.prediction_frame.findChild(QLabel).setText(f"<div style='color: #f1f1f1;'>Prediction:<br>{self.predictions}</div>")
+            #self.prediction_frame.findChild(QLabel).setText(f"<div style='color: #f1f1f1;'>Prediction:<br>{self.predictions}</div>")
+        #self.charts_window = ChartsWindow(self.stock_data, self.predictions)
+        #self.prediction_frame.addWidget(self.charts_window)
+        self.update_prediction_section()
 
 
     def open_charts_window(self):
-        self.charts_window = ChartsWindow(self.stock_data, self.predictions)
+        self.charts_window = ChartsWindow(self.symbol)
         self.charts_window.show()

@@ -52,6 +52,10 @@ def calculate_indicators(df):
     df['Bollinger_Lower'] = df['Bollinger_Middle'] - 2 * df['Close'].rolling(window=20).std()
 
     # Average True Range (ATR)
+    df['High'].fillna(df['High'].mean(), inplace=True)
+    df['Low'].fillna(df['Low'].mean(), inplace=True)
+    df.dropna(subset=['High', 'Low'], inplace=True)
+
     df['High-Low'] = df['High'] - df['Low']
     df['High-Close'] = np.abs(df['High'] - df['Close'].shift())
     df['Low-Close'] = np.abs(df['Low'] - df['Close'].shift())
@@ -184,7 +188,7 @@ def explain_indicators(df, source=""):
 
     # P/E Ratio
     if latest_data['pe-ratio']:
-        add_explanation('P/E_Ratio', latest_data['pe-ratio'], 
+        add_explanation('pe-ratio', latest_data['pe-ratio'], 
             "A low P/E ratio might indicate that the stock is undervalued- Positive signal.",
             "Positive" if latest_data['pe-ratio'] < 20 
             else "Negative" if latest_data['pe-ratio'] > 30 
@@ -197,7 +201,7 @@ def explain_indicators(df, source=""):
         else:
             print(print_colored("P/E ratio is within a Neutral range.", '33'))
     else:
-        add_explanation('P/E_Ratio', 'N/A', "P/E Ratio not available.")
+        add_explanation('pe-ratio', 'N/A', "P/E Ratio not available.")
         print("P/E Ratio not available.")
 
     return explanations
