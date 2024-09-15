@@ -135,9 +135,9 @@ def explain_indicators(df, source=""):
 
     # RSI
     if latest_data['RSI'] < 30:
-        add_explanation('RSI', latest_data['RSI'], "RSI is below 30,  stock might be oversold- Positive signal.", "Positive")
+        add_explanation('RSI', latest_data['RSI'], "RSI is below 30, stock might be oversold- Positive signal.", "Positive")
     elif latest_data['RSI'] > 70:
-        add_explanation('RSI', latest_data['RSI'], "RSI is above 70,  stock might be overbought- Negative signal.", "Negative")
+        add_explanation('RSI', latest_data['RSI'], "RSI is above 70, stock might be overbought- Negative signal.", "Negative")
     else:
         add_explanation('RSI', latest_data['RSI'], "RSI is between 30 and 70- Neutral stance.", "Neutral")
 
@@ -171,7 +171,7 @@ def explain_indicators(df, source=""):
         add_explanation('Bollinger_Upper', latest_data['Close'], "Price is above upper Bollinger Band- overbought condition- Negative.", "Negative")
         print(print_colored("Price is above the upper Bollinger Band, which might indicate an overbought condition- Negative.", '31'))
     else:
-        print(print_colored("Price is within the Bollinger Bands,  Neutral outlook.", '33'))
+        print(print_colored("Price is within the Bollinger Bands, Neutral outlook.", '33'))
         add_explanation('Bollinger_Upper', latest_data['Close'], "Price is within the Bollinger Bands, Neutral outlook.", "Neutral")
         add_explanation('Bollinger_Lower', latest_data['Close'], "Price is within the Bollinger Bands, Neutral outlook.", "Neutral")
 
@@ -186,6 +186,56 @@ def explain_indicators(df, source=""):
     else:
         print("Low ATR suggests lower volatility, which could imply stability.")
 
+    # Average True Range Components
+    print(f"High-Low: {latest_data['High-Low']:.2f}")
+    print(f"High-Close: {latest_data['High-Close']:.2f}")
+    print(f"Low-Close: {latest_data['Low-Close']:.2f}")
+    print(f"True Range: {latest_data['True_Range']:.2f}")
+    add_explanation('High-Low', latest_data['High-Low'], "Difference between the high and low prices of the day.", "Neutral")
+    add_explanation('High-Close', latest_data['High-Close'], "Difference between the high price and the previous close price.", "Neutral")
+    add_explanation('Low-Close', latest_data['Low-Close'], "Difference between the low price and the previous close price.", "Neutral")
+    add_explanation('True_Range', latest_data['True_Range'], "Maximum of High-Low, High-Close, and Low-Close - represents volatility.", "Neutral")
+
+    # Volume
+    try:
+        print(f"Volume: {latest_data['Volume']:.2f}")
+        add_explanation('Volume', latest_data['Volume'], 
+            "Volume measures the total number of shares traded during a specific period. High volume indicates strong investor interest, while low volume may indicate weak interest.",
+            "Positive" if latest_data['Volume'] > df['Volume'].mean() else "Negative")
+
+        if latest_data['Volume'] > df['Volume'].mean():
+            print(print_colored("High trading volume indicates strong investor interest - Positive signal.", '32'))
+        else:
+            print(print_colored("Low trading volume indicates weak investor interest - Negative signal.", '31'))
+
+    except:
+        pass    
+
+    # Volatility
+    print(f"Volatility: {latest_data['Volatility']:.2f}")
+    add_explanation('Volatility', latest_data['Volatility'], 
+        "Volatility measures the dispersion of returns. High volatility suggests more risk and price fluctuations, while low volatility suggests stability.",
+        "Negative" if latest_data['Volatility'] > df['Volatility'].mean() else "Positive")
+
+    if latest_data['Volatility'] > df['Volatility'].mean():
+        print(print_colored("High volatility indicates increased risk - Negative signal.", '31'))
+    else:
+        print(print_colored("Low volatility suggests stability - Positive signal.", '32'))
+
+    # EMA-12 and EMA-26 Combined
+    print(f"EMA-12: {latest_data['EMA_12']:.2f}")
+    print(f"EMA-26: {latest_data['EMA_26']:.2f}")
+    if latest_data['EMA_12'] > latest_data['EMA_26']:
+        add_explanation('EMA_12_26', None, 
+            "EMA-12 is above EMA-26 indicating a bullish trend, suggesting potential upward momentum.", 
+            "Positive")
+        print(print_colored("EMA-12 is above EMA-26, indicating a bullish trend - Positive signal.", '32'))
+    else:
+        add_explanation('EMA_12_26', None, 
+            "EMA-12 is below EMA-26 indicating a bearish trend, suggesting potential downward momentum.", 
+            "Negative")
+        print(print_colored("EMA-12 is below EMA-26, indicating a bearish trend - Negative signal.", '31'))
+
     # P/E Ratio
     if latest_data['pe-ratio']:
         add_explanation('pe-ratio', latest_data['pe-ratio'], 
@@ -195,16 +245,27 @@ def explain_indicators(df, source=""):
             else "Neutral")
         print(f"P/E Ratio: {latest_data['pe-ratio']:.2f}")
         if latest_data['pe-ratio'] < 20:
-            print(print_colored("A low P/E ratio might indicate that the stock is undervalued- Positive signal.", '32'))
+            print(print_colored("P/E Ratio is low, stock might be undervalued - Positive signal.", '32'))
         elif latest_data['pe-ratio'] > 30:
-            print(print_colored("A high P/E ratio might suggest overvaluation- Negative signal.", '31'))
+            print(print_colored("P/E Ratio is high, stock might be overvalued - Negative signal.", '31'))
         else:
-            print(print_colored("P/E ratio is within a Neutral range.", '33'))
-    else:
-        add_explanation('pe-ratio', 'N/A', "P/E Ratio not available.")
-        print("P/E Ratio not available.")
+            print(print_colored("P/E Ratio is in the neutral range.", '33'))
+            
+    '''
+    # Dividend Yield
+    if latest_data['dividend-yield']:
+        add_explanation('dividend-yield', latest_data['dividend-yield'],
+            "A higher dividend yield might indicate that the stock is providing good returns to investors - Positive signal.",
+            "Positive" if latest_data['dividend-yield'] > 0.05 
+            else "Neutral")
+        print(f"Dividend Yield: {latest_data['dividend-yield']:.2f}")
+        if latest_data['dividend-yield'] > 0.05:
+            print(print_colored("Dividend Yield is high, indicating good returns to investors - Positive signal.", '32'))
+        else:
+            print(print_colored("Dividend Yield is in the neutral range.", '33'))'''
 
     return explanations
+
 
 
 

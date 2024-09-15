@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
         self.indicator_frame = self.create_scrollable_section("Financial Indicators ", section_style)
         self.macro_frame = self.create_section("Macroeconomic Analysis \n", section_style, font)
         self.news_frame = self.create_scrollable_section("News Sentiment", section_style)
-        self.prediction_frame = self.create_section("Prediction\n", section_style, font)
+        self.prediction_frame = self.create_section("Predictions", section_style, font)
 
         # Create labels for predictions
         self.arima_prediction_label = QLabel("ARIMA Prediction: N/A")
@@ -109,8 +109,10 @@ class MainWindow(QMainWindow):
 
         # Create and style the title label
         title_label = QLabel(title)
-        title_label.setFont(bold_font)  # Apply the bold font
-        title_label.setStyleSheet("margin-bottom: 5px;")  # Small margin below the title
+        title_font = QFont('Arial', 14)
+        title_font.setBold(True)
+        title_label.setFont(title_font)  # Apply the bold font
+        title_label.setStyleSheet("color: #f1f1f1; margin-bottom: 5px;")  # Light color for dark background
         layout.addWidget(title_label)
 
         # Create and style the content label
@@ -119,6 +121,7 @@ class MainWindow(QMainWindow):
         content_label.setFont(font)  # Use the regular font for content
         layout.addWidget(content_label)
 
+        print(f"Created section: {title}")  # Debug statement
         return frame
 
     def create_scrollable_section(self, title, style):
@@ -148,6 +151,8 @@ class MainWindow(QMainWindow):
 
         # Add scroll area to frame layout
         layout.addWidget(scroll_area)
+
+        print(f"Created scrollable section: {title}")  # Debug statement
         return frame
     
 
@@ -200,6 +205,11 @@ class MainWindow(QMainWindow):
         # Assuming prediction_frame contains a QLabel for displaying predictions
         prediction_label = self.prediction_frame.findChild(QLabel)
         if prediction_label:
+            prediction_label.setText(f"<div style='color: #f1f1f1;'>Prediction:<br>{self.predictions}</div>")
+        else:
+            print("Error: prediction_frame does not contain a QLabel.")
+        prediction_label = self.prediction_frame.findChild(QLabel)
+        if prediction_label:
             prediction_label.setText(f"Test Data: {test_data}\nARIMA Prediction: {arima_pred}\nLSTM Prediction: {lstm_pred}")
         else:
             print("Error: prediction_frame does not contain a QLabel for updating.")
@@ -215,7 +225,6 @@ class MainWindow(QMainWindow):
   
 
     def update_sections(self):
-
         # Path to the default icon (replace with your own path or URL)
         default_icon_path = r'C:\\Users\\Sissy\\Desktop\\python\\projects\\ETL\\stock_analysis_api\\resources\\default_news.png'
 
@@ -240,23 +249,11 @@ class MainWindow(QMainWindow):
         content_label = QLabel(f"<div style='color: #f1f1f1;'>{indicator_str.strip()}</div>")
         content_label.setTextFormat(Qt.RichText)
         scroll_area_content.layout().addWidget(content_label)
-
-
-
         # Handle macroeconomic data
-        
+        macroeconomic_str = ""  # Initialize the variable
+
         if isinstance(self.macroeconomics, dict):
-            description = self.macroeconomic_sentiment
-            sentiment_color  = 'yellow'  # Default color for neutral
-            if description == 'Positive':
-                sentiment_color  = '#32CD32'
-            elif description == 'Negative':
-                sentiment_color  = '#FF6347'
-            macroeconomic_str = (
-                f"<div style='color: #f1f1f1;'>"
-                f"<h3 style='color:{sentiment_color}; font-size:16px; font-weight:normal;'>"
-                f"Sentiment: {self.macroeconomic_sentiment}</h3>"
-        )
+            macroeconomic_str = f"<div style='color: #f1f1f1;'>"
             for key, value in self.macroeconomics.items():
                 description = self.macroeconomic_descriptions.get(key, 'Neutral')
                 sentiment_color  = 'yellow'  # Default color for neutral
@@ -265,24 +262,23 @@ class MainWindow(QMainWindow):
                 elif description == 'Negative':
                     sentiment_color  = '#FF6347'
                 
-                # Corrected the HTML style string
                 macroeconomic_str += (
-                f"<div style='font-size: 14px; margin-bottom: 6px;'>"
-                f"<b>{key}:</b> <span style='color: #f1f1f1;'>{value}</span> "
-                f"<span style='color: {sentiment_color }; font-size: 12px;'>{description}</span>"
-                f"</div>"
-        )
-
-                macroeconomic_str += "</div>"
+                    f"<div style='font-size: 14px; margin-bottom: 6px;'>"
+                    f"<b>{key}:</b> <span style='color: #f1f1f1;'>{value}</span> "
+                    f"<span style='color: {sentiment_color}; font-size: 12px;'>{description}</span>"
+                    f"</div>"
+                )
+            macroeconomic_str += "</div>"
 
             # Apply the formatted string to the QLabel in the macro_frame
-            self.macro_frame.findChild(QLabel).setText(macroeconomic_str)
+            macro_label = self.macro_frame.findChild(QLabel)
+            if macro_label:
+                macro_label.setText(macroeconomic_str)
+            else:
+                self.macro_frame.findChild(QLabel).setText(f"<div style='color: #f1f1f1;'>Macroeconomic Analysis:<br>{self.macroeconomics}</div>")
+
         else:
             self.macro_frame.findChild(QLabel).setText(f"<div style='color: #f1f1f1;'>Macroeconomic Analysis:<br>{self.macroeconomics}</div>")
-
-       
-
-
 
         # Update the news section
         if isinstance(self.news_data, list) and self.news_data:
@@ -295,13 +291,13 @@ class MainWindow(QMainWindow):
             # Set the style based on the sentiment
             sentiment_style = sentiment_styles.get(self.news_sentiment.lower(), 'color: #FFFF00;')
             news_str = ""
-            
+
             # Create and add the sentiment info label on top
             sentiment_timestamp = datetime.now().strftime("%d/%m/%Y %H:%M")
             sentiment_info = QLabel(f"<div style='{sentiment_style}'>News sentiment {sentiment_timestamp}: {self.news_sentiment.capitalize()}</div>")
             sentiment_info.setTextFormat(Qt.RichText)
             sentiment_info.setWordWrap(True)
-            
+
             # Add sentiment info to the layout
             scroll_area_content = self.news_frame.findChild(QScrollArea).widget()
             scroll_area_content.layout().addWidget(sentiment_info)
@@ -346,12 +342,8 @@ class MainWindow(QMainWindow):
         else:
             self.news_frame.findChild(QLabel).setText("<div style='color: #f1f1f1;'>No news available.</div>")
 
-            # Update the prediction section
-            #self.prediction_frame.findChild(QLabel).setText(f"<div style='color: #f1f1f1;'>Prediction:<br>{self.predictions}</div>")
-        #self.charts_window = ChartsWindow(self.stock_data, self.predictions)
-        #self.prediction_frame.addWidget(self.charts_window)
+        # Update the prediction section
         self.update_prediction_section()
-
 
     def open_charts_window(self):
         self.charts_window = ChartsWindow(self.symbol)
